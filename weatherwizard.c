@@ -1,9 +1,9 @@
-//  CNIT 315 Lab6
+//  CNIT 315 Final Project
 //  Phoenix Dimagiba, pdimagib@purdue.edu
-//  Zahra Ghorrati, Friday 11:30am
+//  
 //
-//  This program allows the user to create and interact with stack and queue structures.
-//  Ten options are available for the user to choose as desired.
+//  Project description
+//  
 
 #include <stdio.h>
 #include <stdlib.h>
