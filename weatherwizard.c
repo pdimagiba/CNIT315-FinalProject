@@ -11,15 +11,40 @@
 #include <string.h>
 #include <ctype.h>
 
+struct Node
+{
+    char *locationName;
+    char *weatherCondition;
+    char *actualTemp;
+    char *feelTemp;
+    struct Node *nextPtr;
+};
+
+typedef struct Node node_t;
+
+node_t *qHeadPtr = NULL;
+
 //function prototypes
+int system(const char *command);
 char getAction();
 void getLocal();
 void getCity();
-int system(const char *command);
+void queueEnqueue(char *);
+void *queueDequeue();
+node_t *createNode(char *);
+node_t *deleteFront();
+int countNodes();
+void queueClear();
+int clearList(char);
+int queueIsEmpty();
+void printNode(node_t *);
+void printNodes();
+
 
 int main()
 {
     puts("Welcome to Weather Wizard!");
+    puts("Powered by wttr.in");
     //proceeds based on choice selected in getAction
     while (1)
     {
@@ -31,6 +56,15 @@ int main()
                 break;
             case '2':
                 getCity();
+                break;
+            case '3':
+                printNodes();
+                break;
+            case '4':
+                queueDequeue();
+                break;
+            case '5':
+                queueClear();
                 break;
             case 'A':
                 printf("Farewell.\n");
@@ -49,7 +83,10 @@ char getAction()
     
     //display options
     printf("1. Get local weather only\n");
-    printf("2. Get specific city/cities' weather\n");
+    printf("2. Get specific location/locations' weather\n");
+    printf("3. Display stored location weather entries.\n");
+    printf("4. Delete a node from the weather entries queue.\n");
+    printf("5. Remove all of the nodes from the weather entries queue.\n");
     printf("A. Exit program\n");
     //get and return user's action
     printf("Enter an option: ");
@@ -74,7 +111,8 @@ void getLocal()
     }
     else if(choice == 2)
     {
-        system("curl wttr.in?format=\"%l:+%C+%t\n\"");
+        puts("The information is provided as follows: [Location]: [Weather Condition] [Actual Temperature] [Feels-Like Temperature]");
+        system("curl wttr.in?format=\"%l:+%C+%t+\%f\n\"");
         putchar('\n');
         putchar('\n');
     }
@@ -91,11 +129,13 @@ void getCity()
     const char s[2] = ",";
     char *token;
     int detail;
+    char qAdd;
     
-    puts("\n[Weather by City]");
-    puts("To enter more than one city, separate with commas (London,Singapore,Paris).");
-    puts("To enter multiple-word cities, separate words with + (San+Diego).");
-    printf("Enter city or cities: ");
+    puts("\n[Weather by Location]");
+    puts("To enter more than one location, separate with commas (Singapore,London,Paris).");
+    puts("To enter multiple-word locations, separate words with + (San+Diego).");
+    puts("You may also enter 3-letter airport codes (SAN) or special locations with a preceding ~ (~White+House)");
+    printf("Enter location or locations: ");
     scanf("%s", &choice);
     printf("Select 1 for detailed and 2 for simple: ");
     scanf("%d", &detail);
@@ -110,8 +150,11 @@ void getCity()
             strcat(command, token);
             system(command);
             putchar('\n');
-            //printf("%s", command);
             (void)strncpy(command, "curl wttr.in/", sizeof(command));
+            fflush(stdin);
+            printf("Would you like to save this update to the queue? (Y/N): ");
+            qAdd = getchar();            
+            (qAdd == 'Y' || qAdd == 'y') ? queueEnqueue(token) : puts("Proceeding without saving.");
             token = strtok(NULL, s);
             //printf("%s", token);
         }
@@ -119,16 +162,21 @@ void getCity()
     else if(detail == 2)
     {
         token = strtok(choice, s);
+        puts("The information is formatted as follows: [Location]: [Weather Condition] [Actual Temperature] [Feels-Like Temperature]");
 
         while( token != NULL )
         {
             strcat(command, token);
-            //printf("%s", command);
-            strcat(command, "?format=\"%l+\%C+%t\n\n");
-            //printf("%s", command);
+            strcat(command, "?format=\"%l:+\%C+%t+\%f\n\n");
             system(command);
             putchar('\n');
             (void)strncpy(command, "curl wttr.in/", sizeof(command));
+            
+            fflush(stdin);
+            printf("Would you like to save this update to the queue? (Y/N): ");
+            qAdd = getchar();           
+            (qAdd == 'Y' || qAdd == 'y') ? queueEnqueue(token) : puts("Proceeding without saving.");
+
             token = strtok(NULL, s);
         }
         putchar('\n');
@@ -137,4 +185,185 @@ void getCity()
         puts("Invalid option selected.");
 
     fflush(stdin);
+}
+
+void queueEnqueue(char *newCity)
+{
+    fflush(stdin);
+    
+    node_t *tempPtr = qHeadPtr;
+    //if queue has no nodes
+    if (!tempPtr)
+    {
+        // create a new node, set queue headPtr to point to the node
+        qHeadPtr = createNode(newCity);
+    }
+    else
+    {
+       //moves to last node, sets last node's next pointer to new node
+        while (tempPtr)
+        {
+            if (!tempPtr->nextPtr)
+            {
+                node_t *newNode = createNode(newCity);
+                tempPtr->nextPtr = newNode;
+                break;
+            }
+            tempPtr = tempPtr->nextPtr;
+        }
+    }
+}
+
+void *queueDequeue()
+{
+    //topmost node deleted from queue
+    node_t *tempPtr = deleteFront();
+    printf("Topmost node deleted from queue.\n\n");
+    free(tempPtr);
+}
+
+node_t *createNode(char *tempName)
+{   
+    //node memory allocation
+    node_t *newNode = malloc(sizeof(node_t));
+    char *locationNameArr = malloc(31 * sizeof(char));
+    char *weatherConditionArr = malloc(31 * sizeof(char));
+    char *actualTempArr = malloc(31 * sizeof(char));
+    char *feelTempArr = malloc(31 * sizeof(char));
+
+    memset(locationNameArr, 0, strlen(locationNameArr));
+    strcat(locationNameArr, tempName);
+
+    //get values with f gets
+    puts("Please enter the following weather data manually!");
+    printf("Enter the city's weather condition: ");
+    fgets(weatherConditionArr, 31, stdin);
+    printf("Enter the city's actual temperature: ");
+    fgets(actualTempArr, 31, stdin);
+    printf("Enter the city's feels-like temperature: ");
+    fgets(feelTempArr, 31, stdin);
+    
+    //set node values to inputted values
+    newNode->locationName = &locationNameArr[0];
+    newNode->weatherCondition = &weatherConditionArr[0];
+    newNode->actualTemp = &actualTempArr[0];
+    newNode->feelTemp = &feelTempArr[0];
+    newNode->nextPtr = NULL;
+    return newNode;
+}
+
+node_t *deleteFront()
+{
+    node_t *tempPtr = qHeadPtr;
+
+    //if the node not empty, remove the node front of queue and return the pointer
+    if (!queueIsEmpty())
+    {
+        node_t *dequeuePtr = qHeadPtr;
+        qHeadPtr = qHeadPtr->nextPtr;
+        return dequeuePtr;
+    }
+    //if queue is empty note this and return NULL
+    else
+    {
+        printf("The queue is empty.\n\n");
+        return NULL;
+    }
+    
+}
+
+int queueIsEmpty()
+{
+    //returns 1 if the queue has nodes
+    return countNodes() ? 0 : 1;
+}
+
+int countNodes()
+{
+    node_t *tempPtr = qHeadPtr;
+
+    //increments counter variable for each node
+    int i = 0;
+    while (tempPtr != NULL)
+    {
+        tempPtr = tempPtr->nextPtr;
+        i++;
+    }
+    return i;
+}
+
+void queueClear()
+{
+    //calls the clearList() function in queue mode
+    if (clearList('q'))
+        printf("Queue cleared!\n\n");
+}
+
+int clearList(char select)
+{
+    //int selection = select == 's';
+    node_t *tempPtr = qHeadPtr;
+
+    //finds nodeCount of stack or queue depending on selection
+    if (countNodes('q'))
+    {
+        //frees the memory of every node in either list starting with the last node in the list until there is only one node remaining
+        int n, i;
+        for (n = (countNodes('q') - 1); n > 0; n--)
+        {
+            i = 0;
+            node_t *travPtr = tempPtr;
+            while (i != n - 1)
+            {
+                travPtr = travPtr->nextPtr;
+                i++;
+            }
+            free(travPtr->nextPtr);
+        }
+
+        //free memory of the last node, set the corresponding HeadPtr to NULL
+        free(tempPtr);
+        qHeadPtr = NULL;
+        return 1;
+    }
+    //queue empty already
+    else
+    {
+        printf("The queue is already empty.\n\n");
+        return 0;
+    }
+}
+
+void printNode(node_t *nodePtr)
+{
+    //prints node contents
+    printf("Memory Address: %p\n", nodePtr);
+    printf("City: %s\n", nodePtr->locationName);
+    printf("Weather Condition: %s", nodePtr->weatherCondition);
+    printf("Actual Temperature: %s", nodePtr->actualTemp);
+    printf("Feel-like Temperature: %s", nodePtr->feelTemp);
+    printf("Next Node Memory Address: %p\n\n", nodePtr->nextPtr);
+}
+
+void printNodes()
+{
+    node_t *tempPtr = qHeadPtr;
+
+    //finds number of nodes in list depending on the selection
+    int nodeCount = countNodes();
+    printf("There is/are %d node(s) in the queue.\n\n", nodeCount);
+
+    if (nodeCount)
+    {
+        //traverse queue, print each node
+        printf("[Queue Front]\n\n");
+        while (tempPtr)
+        {
+            printNode(tempPtr);
+            tempPtr = tempPtr->nextPtr;
+        }
+        printf("[Queue Back]\n\n");
+    }
+    else
+        return;
 }
